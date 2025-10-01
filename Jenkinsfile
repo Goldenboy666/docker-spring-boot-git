@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Clone from GitHub') {
             steps {
-                git 'https://github.com/XSniper001/docker-spring-boot.git'
+                git  'https://github.com/Goldenboy666/docker-spring-boot-git.git'
                 echo " Code successfully pulled from GitHub"
             }
         }
