@@ -12,14 +12,15 @@ pipeline {
         stage('Clone from GitHub') {
             steps {
                 git branch: 'main', url: 'https://github.com/Goldenboy666/docker-spring-boot-git.git'
-                echo " Code successfully pulled from GitHub"
+                sh 'chmod +x ./mvnw'
+                echo "✅ Code successfully pulled from GitHub"
             }
         }
 
         stage('Build Application') {
             steps {
                 sh './mvnw clean package -DskipTests'
-                echo " Application built successfully"
+                echo "✅ Application built successfully"
             }
         }
 
@@ -28,7 +29,7 @@ pipeline {
                 script {
                     docker.build("${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}")
                 }
-                echo " Docker image built for Nexus"
+                echo "✅ Docker image built for Nexus"
             }
         }
 
@@ -46,7 +47,7 @@ pipeline {
                         """
                     }
                 }
-                echo " Docker image pushed to Nexus Repository"
+                echo "✅ Docker image pushed to Nexus Repository"
             }
         }
 
@@ -67,7 +68,7 @@ pipeline {
                         """
                     }
                 }
-                echo " Application deployed from Nexus on port 8085"
+                echo "✅ Application deployed from Nexus on port 8085"
             }
         }
     }
@@ -77,13 +78,13 @@ pipeline {
             cleanWs()
         }
         success {
-            echo " Pipeline completed successfully!"
+            echo "🎉 Pipeline completed successfully!"
             echo "Application URL: http://localhost:8085"
             echo "Nexus: http://localhost:8081" 
             echo "Check Nexus: http://localhost:8081 → Browse → docker-internal"
         }
         failure {
-            echo " Pipeline failed - check logs above"
+            echo "❌ Pipeline failed - check logs above"
         }
     }
 }
