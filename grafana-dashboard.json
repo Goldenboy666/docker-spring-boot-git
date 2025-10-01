@@ -1,0 +1,19 @@
+{
+  "dashboard": {
+    "title": "Spring Boot App Monitoring",
+    "panels": [
+      {
+        "id": 1,
+        "title": "CPU Usage", 
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "system_cpu_usage",
+            "legendFormat": "CPU Usage"
+          }
+        ]
+      }
+    ]
+  }
+}
+
