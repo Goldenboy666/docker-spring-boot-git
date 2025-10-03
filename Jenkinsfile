@@ -3,9 +3,6 @@ pipeline {
 
     environment {
         NEXUS_DOCKER_REGISTRY = "localhost:8083"
-        NEXUS_URL = "http://localhost:8081"
-        SONARQUBE_URL = "http://localhost:9000"
-        GRAFANA_URL = "http://localhost:3000"
     }
 
     stages {
@@ -13,23 +10,45 @@ pipeline {
             steps {
                 git branch: 'main', url: 'https://github.com/Goldenboy666/docker-spring-boot-git.git'
                 sh 'chmod +x ./mvnw'
-                echo "✅ Code successfully pulled from GitHub"
+                echo "Code successfully pulled from GitHub"
+            }
+        }
+
+        //  SECURITY: TRIVY DEPENDENCY SCAN (SAST)
+        stage('Trivy Security Scan - Dependencies') {
+            steps {
+                sh '''
+                echo "=== TRIVY DEPENDENCY VULNERABILITY SCAN ==="
+                trivy fs . --severity HIGH,CRITICAL --exit-code 0
+                '''
+                echo "Trivy dependency scan completed"
             }
         }
 
         stage('Build Application') {
             steps {
                 sh './mvnw clean package -DskipTests'
-                echo "✅ Application built successfully"
+                echo "Application built successfully"
             }
         }
 
         stage('Build Docker Image') {
             steps {
                 script {
-                    docker.build("${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}")
+                    sh "docker build -t ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID} ."
                 }
-                echo "✅ Docker image built for Nexus"
+                echo "Docker image built for Nexus"
+            }
+        }
+
+        //  SECURITY: TRIVY CONTAINER SCAN
+        stage('Trivy Security Scan - Container') {
+            steps {
+                sh '''
+                echo "=== TRIVY CONTAINER IMAGE VULNERABILITY SCAN ==="
+                trivy image ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0
+                '''
+                echo "Trivy container image scan completed"
             }
         }
 
@@ -47,7 +66,7 @@ pipeline {
                         """
                     }
                 }
-                echo "✅ Docker image pushed to Nexus Repository"
+                echo "Docker image pushed to Nexus Repository"
             }
         }
 
@@ -68,23 +87,48 @@ pipeline {
                         """
                     }
                 }
-                echo "✅ Application deployed from Nexus on port 8085"
+                echo "Application deployed from Nexus on port 8085"
+            }
+        }
+
+        //  SECURITY: DAST WITH DOCKER TOOLS
+        stage('DAST - OWASP ZAP Security Test') {
+            steps {
+                sh '''
+                echo "=== OWASP ZAP DAST SECURITY SCAN ==="
+                # Pull and run OWASP ZAP to test running application
+                docker run --rm -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
+                  -t http://host.docker.internal:8085 -I -J zap-report.json || echo "ZAP scan completed"
+                '''
+                echo "OWASP ZAP DAST security testing completed"
+            }
+        }
+
+        stage('DAST - Nikto Web Scan') {
+            steps {
+                sh '''
+                echo "=== NIKTO WEB VULNERABILITY SCAN ==="
+                # Pull and run Nikto web scanner
+                docker run --rm sullo/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
+                '''
+                echo "Nikto web vulnerability scan completed"
             }
         }
     }
 
     post {
         always {
-            cleanWs()
+            // Archive security reports
+            archiveArtifacts artifacts: '**/*report.*, **/*scan.*, **/*.json, **/*.txt', allowEmptyArchive: true
         }
         success {
-            echo "🎉 Pipeline completed successfully!"
-            echo "Application URL: http://localhost:8085"
-            echo "Nexus: http://localhost:8081" 
-            echo "Check Nexus: http://localhost:8081 → Browse → docker-internal"
-        }
-        failure {
-            echo "❌ Pipeline failed - check logs above"
+            echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY!"
+            echo "SECURITY SCANS:"
+            echo "   - Trivy (SAST): Dependency & Container scanning"
+            echo "   - OWASP ZAP (DAST): Web application security testing"
+            echo "   - Nikto (DAST): Web server vulnerability scanning"
+            echo " APPLICATION: http://localhost:8085"
+            echo " NEXUS: http://localhost:8081"
         }
     }
 }
