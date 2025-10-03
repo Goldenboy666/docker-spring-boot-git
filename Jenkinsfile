@@ -34,9 +34,9 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID} ."
+                    sh "docker build -t spring-boot-app:${env.BUILD_ID} ."
                 }
-                echo "Docker image built for Nexus"
+                echo "Docker image built successfully"
             }
         }
 
@@ -44,13 +44,14 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                docker run --rm aquasec/trivy:latest image ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0
+                # Scan the local image instead of Nexus image
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0
                 '''
                 echo "Trivy container image scan completed"
             }
         }
 
-        stage('Push to Nexus') {
+        stage('Tag and Push to Nexus') {
             steps {
                 script {
                     withCredentials([usernamePassword(
@@ -59,6 +60,10 @@ pipeline {
                         passwordVariable: 'NEXUS_PASSWORD'
                     )]) {
                         sh """
+                            # Tag the local image for Nexus
+                            docker tag spring-boot-app:${env.BUILD_ID} ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}
+                            
+                            # Push to Nexus
                             docker login ${env.NEXUS_DOCKER_REGISTRY} -u $NEXUS_USER -p $NEXUS_PASSWORD
                             docker push ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}
                         """
@@ -93,6 +98,8 @@ pipeline {
             steps {
                 sh '''
                 echo "OWASP ZAP DAST SECURITY SCAN"
+                # Wait for app to be ready
+                sleep 30
                 docker run --rm -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
                   -t http://host.docker.internal:8085 -I -J zap-report.json || echo "ZAP scan completed"
                 '''
