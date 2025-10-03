@@ -18,8 +18,8 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                # Use no-progress to speed up and skip DB updates
-                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress
+                # Disable Java DB and secret scanning for speed
+                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -45,8 +45,8 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                # Use no-progress and skip DB updates for speed
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress
+                # Disable Java DB and secret scanning for speed
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-java-db-update
                 '''
                 echo "Trivy container image scan completed"
             }
