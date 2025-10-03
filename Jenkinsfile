@@ -18,7 +18,8 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0
+                # Use no-progress to speed up and skip DB updates
+                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -44,7 +45,8 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0
+                # Use no-progress and skip DB updates for speed
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress
                 '''
                 echo "Trivy container image scan completed"
             }
@@ -109,7 +111,7 @@ pipeline {
         success {
             echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY"
             echo "SECURITY SCANS COMPLETED:"
-            echo "   - Trivy (SAST): Code and container vulnerability scanning"
+            echo "   - Trivy (SAST): Dependency and container vulnerability scanning"
             echo "   - Nikto (DAST): Web application security testing"
             echo "APPLICATION: http://localhost:8085"
             echo "NEXUS: http://localhost:8081"
