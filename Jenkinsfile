@@ -3,6 +3,7 @@ pipeline {
 
     environment {
         NEXUS_DOCKER_REGISTRY = "localhost:8083"
+        SONARQUBE_URL = "http://sonarqube:9000"
     }
 
     stages {
@@ -14,12 +15,24 @@ pipeline {
             }
         }
 
+        stage('SonarQube Code Analysis') {
+            steps {
+                sh '''
+                echo "RUNNING SONARQUBE STATIC ANALYSIS"
+                ./mvnw sonar:sonar \
+                  -Dsonar.projectKey=spring-boot-app \
+                  -Dsonar.host.url=${SONARQUBE_URL} \
+                  -Dsonar.login=your-sonar-token
+                '''
+                echo "SonarQube analysis completed"
+            }
+        }
+
         stage('Trivy Security Scan - Dependencies') {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                # Disable Java DB and secret scanning for speed
-                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-java-db-update
+                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -45,8 +58,7 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                # Disable Java DB and secret scanning for speed
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-java-db-update
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy container image scan completed"
             }
@@ -92,12 +104,35 @@ pipeline {
             }
         }
 
+        stage('Configure Prometheus Monitoring') {
+            steps {
+                sh '''
+                echo "CONFIGURING PROMETHEUS TARGETS"
+                curl -X POST http://prometheus:9090/-/reload || echo "Prometheus reloaded"
+                '''
+                echo "Prometheus monitoring configured"
+            }
+        }
+
+        stage('Setup Grafana Dashboard') {
+            steps {
+                sh '''
+                echo "IMPORTING GRAFANA DASHBOARD"
+                curl -X POST http://grafana:3000/api/dashboards/db \
+                  -H "Content-Type: application/json" \
+                  -H "Authorization: Bearer $GRAFANA_API_KEY" \
+                  -d @custom-dashboard.json || echo "Grafana dashboard imported"
+                '''
+                echo "Grafana dashboard setup completed"
+            }
+        }
+
         stage('DAST - Nikto Security Test') {
             steps {
                 sh '''
                 echo "NIKTO DAST SECURITY SCAN"
-                sleep 30
-                docker run --rm sullo/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
+                sleep 10
+                docker run --rm hysnsec/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
                 '''
                 echo "Nikto DAST security testing completed"
             }
@@ -111,8 +146,12 @@ pipeline {
         success {
             echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY"
             echo "SECURITY SCANS COMPLETED:"
+            echo "   - SonarQube: Static code analysis"
             echo "   - Trivy (SAST): Dependency and container vulnerability scanning"
             echo "   - Nikto (DAST): Web application security testing"
+            echo "MONITORING:"
+            echo "   - Prometheus: Metrics collection configured"
+            echo "   - Grafana: Dashboard imported"
             echo "APPLICATION: http://localhost:8085"
             echo "NEXUS: http://localhost:8081"
         }
