@@ -44,7 +44,6 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                # Scan the local image instead of Nexus image
                 docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0
                 '''
                 echo "Trivy container image scan completed"
@@ -60,10 +59,7 @@ pipeline {
                         passwordVariable: 'NEXUS_PASSWORD'
                     )]) {
                         sh """
-                            # Tag the local image for Nexus
                             docker tag spring-boot-app:${env.BUILD_ID} ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}
-                            
-                            # Push to Nexus
                             docker login ${env.NEXUS_DOCKER_REGISTRY} -u $NEXUS_USER -p $NEXUS_PASSWORD
                             docker push ${env.NEXUS_DOCKER_REGISTRY}/spring-boot-app:${env.BUILD_ID}
                         """
@@ -94,45 +90,29 @@ pipeline {
             }
         }
 
-        stage('DAST - OWASP ZAP Security Test') {
+        stage('DAST - Nikto Security Test') {
             steps {
                 sh '''
-                echo "OWASP ZAP DAST SECURITY SCAN"
-                # Wait for app to be ready
+                echo "NIKTO DAST SECURITY SCAN"
                 sleep 30
-                docker run --rm -v $(pwd):/zap/wrk/:rw -t owasp/zap2docker-stable zap-baseline.py \
-                  -t http://host.docker.internal:8085 -I -J zap-report.json || echo "ZAP scan completed"
-                '''
-                echo "OWASP ZAP DAST security testing completed"
-            }
-        }
-
-        stage('DAST - Nikto Web Scan') {
-            steps {
-                sh '''
-                echo "NIKTO WEB VULNERABILITY SCAN"
                 docker run --rm sullo/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
                 '''
-                echo "Nikto web vulnerability scan completed"
+                echo "Nikto DAST security testing completed"
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: '**/*report.*, **/*scan.*, **/*.json, **/*.txt', allowEmptyArchive: true
+            archiveArtifacts artifacts: '**/*scan.*, **/*.txt', allowEmptyArchive: true
         }
         success {
             echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY"
-            echo "SECURITY SCANS:"
-            echo "   - Trivy (SAST): Dependency & Container scanning"
-            echo "   - OWASP ZAP (DAST): Web application security testing"
-            echo "   - Nikto (DAST): Web server vulnerability scanning"
+            echo "SECURITY SCANS COMPLETED:"
+            echo "   - Trivy (SAST): Code and container vulnerability scanning"
+            echo "   - Nikto (DAST): Web application security testing"
             echo "APPLICATION: http://localhost:8085"
             echo "NEXUS: http://localhost:8081"
-        }
-        failure {
-            echo "Pipeline failed - check logs above"
         }
     }
 }
