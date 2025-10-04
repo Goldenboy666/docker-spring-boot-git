@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         NEXUS_DOCKER_REGISTRY = "localhost:8083"
-        SONARQUBE_URL = "http://localhost:9000"
+        SONARQUBE_URL = "http://devops-project-sonarqube-1:9000"
     }
 
     stages {
@@ -22,7 +22,7 @@ pipeline {
                     echo "RUNNING SONARQUBE STATIC ANALYSIS"
                     ./mvnw sonar:sonar \
                       -Dsonar.projectKey=spring-boot-app \
-                      -Dsonar.host.url=http://localhost:9000 \
+                      -Dsonar.host.url=http://devops-project-sonarqube-1:9000 \
                       -Dsonar.login=$SONAR_TOKEN
                     '''
                 }
@@ -105,61 +105,11 @@ pipeline {
                 echo "Application deployed from Nexus on port 8085"
             }
         }
-
-        stage('Configure Prometheus Monitoring') {
-            steps {
-                sh '''
-                echo "CONFIGURING PROMETHEUS TARGETS"
-                curl -X POST http://localhost:9090/-/reload || echo "Prometheus reloaded"
-                '''
-                echo "Prometheus monitoring configured"
-            }
-        }
-
-        stage('Setup Grafana Dashboard') {
-            steps {
-                sh '''
-                echo "IMPORTING GRAFANA DASHBOARD"
-                curl -X POST http://localhost:3000/api/dashboards/db \
-                  -H "Content-Type: application/json" \
-                  -H "Authorization: Bearer $GRAFANA_API_KEY" \
-                  -d @custom-dashboard.json || echo "Grafana dashboard imported"
-                '''
-                echo "Grafana dashboard setup completed"
-            }
-        }
-
-        stage('DAST - Nikto Security Test') {
-            steps {
-                sh '''
-                echo "NIKTO DAST SECURITY SCAN"
-                sleep 10
-                docker run --rm hysnsec/nikto -h http://localhost:8085 -o nikto-scan.txt || echo "Nikto scan completed"
-                '''
-                echo "Nikto DAST security testing completed"
-            }
-        }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: '**/*scan.*, **/*.txt', allowEmptyArchive: true
-        }
         success {
-            echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY"
-            echo "SECURITY SCANS COMPLETED:"
-            echo "   - SonarQube: Static code analysis"
-            echo "   - Trivy (SAST): Dependency and container vulnerability scanning"
-            echo "   - Nikto (DAST): Web application security testing"
-            echo "MONITORING:"
-            echo "   - Prometheus: Metrics collection configured"
-            echo "   - Grafana: Dashboard imported"
-            echo "APPLICATION: http://localhost:8085"
-            echo "NEXUS: http://localhost:8081"
-            echo "SONARQUBE: http://localhost:9000"
-            echo "JENKINS: http://localhost:8080"
-            echo "GRAFANA: http://localhost:3000"
-            echo "PROMETHEUS: http://localhost:9090"
+            echo "PIPELINE COMPLETED SUCCESSFULLY"
         }
     }
 }
