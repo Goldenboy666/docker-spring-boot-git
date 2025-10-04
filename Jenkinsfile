@@ -34,7 +34,7 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                docker run --rm -v $(pwd):/app -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update
+                docker run --rm -v $(pwd):/app -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy container image scan completed"
             }
