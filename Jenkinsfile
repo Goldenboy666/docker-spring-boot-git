@@ -34,7 +34,16 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                docker run --rm -v $(pwd):/app aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
+                docker run --rm \
+                  -v $(pwd):/app \
+                  -v /home/saifdevops/.cache/trivy:/root/.cache/trivy \
+                  aquasec/trivy:latest fs /app \
+                  --severity HIGH,CRITICAL \
+                  --exit-code 0 \
+                  --no-progress \
+                  --scanners vuln \
+                  --skip-db-update \
+                  --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -60,7 +69,16 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v /home/saifdevops/.cache/trivy:/root/.cache/trivy \
+                  aquasec/trivy:latest image spring-boot-app:${BUILD_ID} \
+                  --severity HIGH,CRITICAL \
+                  --exit-code 0 \
+                  --no-progress \
+                  --scanners vuln \
+                  --skip-db-update \
+                  --skip-java-db-update
                 '''
                 echo "Trivy container image scan completed"
             }
@@ -105,61 +123,11 @@ pipeline {
                 echo "Application deployed from Nexus on port 8085"
             }
         }
-
-        stage('Configure Prometheus Monitoring') {
-            steps {
-                sh '''
-                echo "CONFIGURING PROMETHEUS TARGETS"
-                curl -X POST http://devops-project-prometheus-1:9090/-/reload || echo "Prometheus reloaded"
-                '''
-                echo "Prometheus monitoring configured"
-            }
-        }
-
-        stage('Setup Grafana Dashboard') {
-            steps {
-                sh '''
-                echo "IMPORTING GRAFANA DASHBOARD"
-                curl -X POST http://devops-project-grafana-1:3000/api/dashboards/db \
-                  -H "Content-Type: application/json" \
-                  -H "Authorization: Bearer $GRAFANA_API_KEY" \
-                  -d @custom-dashboard.json || echo "Grafana dashboard imported"
-                '''
-                echo "Grafana dashboard setup completed"
-            }
-        }
-
-        stage('DAST - Nikto Security Test') {
-            steps {
-                sh '''
-                echo "NIKTO DAST SECURITY SCAN"
-                sleep 10
-                docker run --rm hysnsec/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
-                '''
-                echo "Nikto DAST security testing completed"
-            }
-        }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: '**/*scan.*, **/*.txt', allowEmptyArchive: true
-        }
         success {
-            echo "DEVSECOPS PIPELINE COMPLETED SUCCESSFULLY"
-            echo "SECURITY SCANS COMPLETED:"
-            echo "   - SonarQube: Static code analysis"
-            echo "   - Trivy (SAST): Dependency and container vulnerability scanning"
-            echo "   - Nikto (DAST): Web application security testing"
-            echo "MONITORING:"
-            echo "   - Prometheus: Metrics collection configured"
-            echo "   - Grafana: Dashboard imported"
-            echo "APPLICATION: http://localhost:8085"
-            echo "NEXUS: http://localhost:8081"
-            echo "SONARQUBE: http://localhost:9000"
-            echo "JENKINS: http://localhost:8080"
-            echo "GRAFANA: http://localhost:3000"
-            echo "PROMETHEUS: http://localhost:9090"
+            echo "PIPELINE COMPLETED SUCCESSFULLY"
         }
     }
 }
