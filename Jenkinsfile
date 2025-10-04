@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         NEXUS_DOCKER_REGISTRY = "localhost:8083"
-        SONARQUBE_URL = "http://devops-project-sonarqube-1:9000"
+        SONARQUBE_URL = "http://localhost:9000"
     }
 
     stages {
@@ -22,7 +22,7 @@ pipeline {
                     echo "RUNNING SONARQUBE STATIC ANALYSIS"
                     ./mvnw sonar:sonar \
                       -Dsonar.projectKey=spring-boot-app \
-                      -Dsonar.host.url=http://devops-project-sonarqube-1:9000 \
+                      -Dsonar.host.url=http://localhost:9000 \
                       -Dsonar.login=$SONAR_TOKEN
                     '''
                 }
@@ -34,7 +34,7 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                docker run --rm -v $(pwd):/app -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update
+                docker run --rm -v $(pwd):/app -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest fs /app --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
             }
@@ -60,7 +60,7 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update
+                docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v /home/saifdevops/.cache/trivy:/root/.cache/trivy aquasec/trivy:latest image spring-boot-app:${BUILD_ID} --severity HIGH,CRITICAL --exit-code 0 --no-progress --scanners vuln --skip-db-update --skip-java-db-update
                 '''
                 echo "Trivy container image scan completed"
             }
@@ -110,7 +110,7 @@ pipeline {
             steps {
                 sh '''
                 echo "CONFIGURING PROMETHEUS TARGETS"
-                curl -X POST http://devops-project-prometheus-1:9090/-/reload || echo "Prometheus reloaded"
+                curl -X POST http://localhost:9090/-/reload || echo "Prometheus reloaded"
                 '''
                 echo "Prometheus monitoring configured"
             }
@@ -120,7 +120,7 @@ pipeline {
             steps {
                 sh '''
                 echo "IMPORTING GRAFANA DASHBOARD"
-                curl -X POST http://devops-project-grafana-1:3000/api/dashboards/db \
+                curl -X POST http://localhost:3000/api/dashboards/db \
                   -H "Content-Type: application/json" \
                   -H "Authorization: Bearer $GRAFANA_API_KEY" \
                   -d @custom-dashboard.json || echo "Grafana dashboard imported"
@@ -134,7 +134,7 @@ pipeline {
                 sh '''
                 echo "NIKTO DAST SECURITY SCAN"
                 sleep 10
-                docker run --rm hysnsec/nikto -h http://host.docker.internal:8085 -o nikto-scan.txt || echo "Nikto scan completed"
+                docker run --rm hysnsec/nikto -h http://localhost:8085 -o nikto-scan.txt || echo "Nikto scan completed"
                 '''
                 echo "Nikto DAST security testing completed"
             }
