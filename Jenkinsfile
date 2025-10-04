@@ -3,8 +3,7 @@ pipeline {
 
     environment {
         NEXUS_DOCKER_REGISTRY = "localhost:8083"
-        SONARQUBE_URL = "http://localhost:9000"
-        SONAR_TOKEN = credentials('sonarqube-token')
+        SONARQUBE_URL = "http://devops-project-sonarqube-1:9000"
     }
 
     stages {
@@ -18,13 +17,15 @@ pipeline {
 
         stage('SonarQube Code Analysis') {
             steps {
-                sh """
-                echo "RUNNING SONARQUBE STATIC ANALYSIS"
-                ./mvnw sonar:sonar \
-                  -Dsonar.projectKey=spring-boot-app \
-                  -Dsonar.host.url=${SONARQUBE_URL} \
-                  -Dsonar.login=${SONAR_TOKEN}
-                """
+                withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                    echo "RUNNING SONARQUBE STATIC ANALYSIS"
+                    ./mvnw sonar:sonar \
+                      -Dsonar.projectKey=spring-boot-app \
+                      -Dsonar.host.url=http://devops-project-sonarqube-1:9000 \
+                      -Dsonar.login=$SONAR_TOKEN
+                    '''
+                }
                 echo "SonarQube analysis completed"
             }
         }
@@ -109,7 +110,7 @@ pipeline {
             steps {
                 sh '''
                 echo "CONFIGURING PROMETHEUS TARGETS"
-                curl -X POST http://localhost:9090/-/reload || echo "Prometheus reloaded"
+                curl -X POST http://devops-project-prometheus-1:9090/-/reload || echo "Prometheus reloaded"
                 '''
                 echo "Prometheus monitoring configured"
             }
@@ -119,7 +120,7 @@ pipeline {
             steps {
                 sh '''
                 echo "IMPORTING GRAFANA DASHBOARD"
-                curl -X POST http://localhost:3000/api/dashboards/db \
+                curl -X POST http://devops-project-grafana-1:3000/api/dashboards/db \
                   -H "Content-Type: application/json" \
                   -H "Authorization: Bearer $GRAFANA_API_KEY" \
                   -d @custom-dashboard.json || echo "Grafana dashboard imported"
