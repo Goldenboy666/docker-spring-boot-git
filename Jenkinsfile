@@ -64,7 +64,8 @@ pipeline {
                     )]) {
                         sh '''
                             docker tag spring-boot-app:${BUILD_ID} ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
-                            echo "${NEXUS_PASSWORD}" | docker login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} --password-stdin
+                            # Use --insecure-registry flag
+                            docker --insecure-registry ${NEXUS_DOCKER_REGISTRY} login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PASSWORD}
                             docker push ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
                         '''
                     }
@@ -82,7 +83,7 @@ pipeline {
                         passwordVariable: 'NEXUS_PASSWORD'
                     )]) {
                         sh '''
-                            echo "${NEXUS_PASSWORD}" | docker login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} --password-stdin
+                            docker --insecure-registry ${NEXUS_DOCKER_REGISTRY} login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} -p ${NEXUS_PASSWORD}
                             docker stop spring-boot-app || true
                             docker rm spring-boot-app || true
                             docker pull ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
