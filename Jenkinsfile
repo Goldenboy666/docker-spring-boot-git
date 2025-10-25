@@ -42,7 +42,10 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
-                trivy fs . \
+                docker run --rm \
+                  -v $(pwd):/app \
+                  -v /tmp/trivy-cache:/root/.cache/trivy \
+                  aquasec/trivy:latest fs /app \
                   --severity HIGH,CRITICAL \
                   --exit-code 0 \
                   --no-progress \
@@ -74,7 +77,10 @@ pipeline {
             steps {
                 sh '''
                 echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
-                trivy image spring-boot-app:${BUILD_ID} \
+                docker run --rm \
+                  -v /var/run/docker.sock:/var/run/docker.sock \
+                  -v /tmp/trivy-cache:/root/.cache/trivy \
+                  aquasec/trivy:latest image spring-boot-app:${BUILD_ID} \
                   --severity HIGH,CRITICAL \
                   --exit-code 0 \
                   --no-progress \
