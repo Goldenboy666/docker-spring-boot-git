@@ -10,10 +10,10 @@ services:
       - /home/mysql/data:/var/lib/mysql
 
   spring_app:
-    image: 192.168.210.110:8083/spring-boot-app:latest
+    image: 192.168.210.110:8083/spring-boot-app:10
     container_name: spring-boot-app
     restart: on-failure
     ports:
-      - 8085:8080
+      - "8085:9091"
     depends_on:
       - mysqldb
