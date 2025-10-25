@@ -9,12 +9,11 @@ services:
     volumes:
       - /home/mysql/data:/var/lib/mysql
 
-
   spring_app:
-    image: thourayalouati/devopsimage23
-    container_name: devopscontainer
+    image: 192.168.210.110:8083/spring-boot-app:latest
+    container_name: spring-boot-app
     restart: on-failure
     ports:
-      - 9091:9091
+      - 8085:8080
     depends_on:
       - mysqldb
