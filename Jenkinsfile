@@ -65,7 +65,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh "docker build -t spring-boot-app:${env.BUILD_ID} ."
+                    // ADD --no-cache to force rebuild with new dependencies
+                    sh "docker build --no-cache -t spring-boot-app:${env.BUILD_ID} ."
                 }
                 echo "Docker image built successfully"
             }
