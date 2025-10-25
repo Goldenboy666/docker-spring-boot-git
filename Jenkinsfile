@@ -15,6 +15,13 @@ pipeline {
             }
         }
 
+        stage('Build Application') {
+            steps {
+                sh './mvnw clean compile -DskipTests'
+                echo "Application compiled successfully"
+            }
+        }
+
         stage('SonarQube Code Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
@@ -23,10 +30,18 @@ pipeline {
                     ./mvnw sonar:sonar \
                       -Dsonar.projectKey=spring-boot-app \
                       -Dsonar.host.url=http://devops-project-sonarqube-1:9000 \
-                      -Dsonar.login=$SONAR_TOKEN
+                      -Dsonar.login=$SONAR_TOKEN \
+                      -Dsonar.java.binaries=target/classes
                     '''
                 }
                 echo "SonarQube analysis completed"
+            }
+        }
+
+        stage('Package Application') {
+            steps {
+                sh './mvnw package -DskipTests'
+                echo "Application packaged successfully"
             }
         }
 
@@ -46,13 +61,6 @@ pipeline {
                   --skip-java-db-update
                 '''
                 echo "Trivy dependency scan completed"
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                sh './mvnw clean package -DskipTests'
-                echo "Application built successfully"
             }
         }
 
