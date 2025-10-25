@@ -38,6 +38,22 @@ pipeline {
             }
         }
 
+        stage('Trivy Security Scan - Dependencies') {
+            steps {
+                sh '''
+                echo "TRIVY DEPENDENCY VULNERABILITY SCAN"
+                trivy fs . \
+                  --severity HIGH,CRITICAL \
+                  --exit-code 0 \
+                  --no-progress \
+                  --scanners vuln \
+                  --skip-db-update \
+                  --skip-java-db-update
+                '''
+                echo "Trivy dependency scan completed"
+            }
+        }
+
         stage('Package Application') {
             steps {
                 sh './mvnw package -DskipTests'
@@ -54,6 +70,22 @@ pipeline {
             }
         }
 
+        stage('Trivy Security Scan - Container') {
+            steps {
+                sh '''
+                echo "TRIVY CONTAINER IMAGE VULNERABILITY SCAN"
+                trivy image spring-boot-app:${BUILD_ID} \
+                  --severity HIGH,CRITICAL \
+                  --exit-code 0 \
+                  --no-progress \
+                  --scanners vuln \
+                  --skip-db-update \
+                  --skip-java-db-update
+                '''
+                echo "Trivy container image scan completed"
+            }
+        }
+
         stage('Tag and Push to Nexus') {
             steps {
                 script {
@@ -63,13 +95,18 @@ pipeline {
                         passwordVariable: 'NEXUS_PASSWORD'
                     )]) {
                         sh '''
+                            # Push with build number
                             docker tag spring-boot-app:${BUILD_ID} ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
                             echo "${NEXUS_PASSWORD}" | docker login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} --password-stdin
                             docker push ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
+                            
+                            # ALSO push as latest
+                            docker tag spring-boot-app:${BUILD_ID} ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:latest
+                            docker push ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:latest
                         '''
                     }
                 }
-                echo "Docker image pushed to Nexus Repository"
+                echo "Docker image pushed to Nexus Repository (both build number and latest)"
             }
         }
 
@@ -85,8 +122,8 @@ pipeline {
                             echo "${NEXUS_PASSWORD}" | docker login ${NEXUS_DOCKER_REGISTRY} -u ${NEXUS_USER} --password-stdin
                             docker stop spring-boot-app || true
                             docker rm spring-boot-app || true
-                            docker pull ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
-                            docker run -d --name spring-boot-app -p 8085:8080 ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:${BUILD_ID}
+                            docker pull ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:latest
+                            docker run -d --name spring-boot-app -p 8085:9091 ${NEXUS_DOCKER_REGISTRY}/spring-boot-app:latest
                         '''
                     }
                 }
